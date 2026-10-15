@@ -126,6 +126,7 @@ const Map<String, String> appStringsEn = {
   'openingBilling': 'Opening Google Play…',
   'purchaseSuccess': 'Purchase successful!',
   'purchaseFailed': 'Purchase failed',
+  'processingPurchase': 'Processing purchase...',
   'insufficientCoins': 'Not enough stars',
   'alreadyOwned': 'Already owned',
   'coinsAdded': 'Stars added to your balance!',

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/shell_provider.dart';
+import '../providers/shell_provider.dart';
+import '../widgets/ad_banner_slot.dart';
+import '../widgets/trip_design.dart';
 import 'account/account_screen.dart';
 import 'explore/explore_screen.dart';
 import 'home/home_screen.dart';
 import 'itinerary/itinerary_screen.dart';
 import 'trips/create_trip_sheet.dart';
-import '../widgets/trip_design.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({super.key});
@@ -28,16 +29,22 @@ class MainShell extends StatelessWidget {
           AccountScreen(),
         ],
       ),
-      bottomNavigationBar: TbBottomNav(
-        index: index,
-        onTap: (i) {
-          if (i == 2) {
-            _openCreateTrip();
-          } else {
-            context.read<ShellProvider>().setIndex(i);
-          }
-        },
-        onCreateTap: _openCreateTrip,
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AdBannerSlot(),
+          TbBottomNav(
+            index: index,
+            onTap: (i) {
+              if (i == 2) {
+                _openCreateTrip();
+              } else {
+                context.read<ShellProvider>().setIndex(i);
+              }
+            },
+            onCreateTap: _openCreateTrip,
+          ),
+        ],
       ),
     );
   }

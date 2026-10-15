@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:provider/provider.dart';
 
+import 'core/constants/ad_constants.dart';
 import 'core/navigation/app_navigator.dart';
+import 'core/services/ad_service.dart';
 import 'core/services/storage_service.dart';
 import 'providers/shell_provider.dart';
 import 'providers/shop_provider.dart';
@@ -22,6 +28,10 @@ late final TripToolsProvider appTripToolsProvider;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final imagePicker = ImagePickerPlatform.instance;
+  if (imagePicker is ImagePickerAndroid) {
+    imagePicker.useAndroidPhotoPicker = true;
+  }
   await StorageService.instance.init();
 
   appThemeProvider = ThemeProvider();
@@ -31,6 +41,9 @@ Future<void> main() async {
   appTripToolsProvider = TripToolsProvider();
 
   runApp(const TripBoxApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (AdConstants.isConfigured) unawaited(AdService.init());
+  });
 }
 
 class TripBoxApp extends StatelessWidget {

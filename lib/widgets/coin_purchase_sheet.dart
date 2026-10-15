@@ -10,14 +10,32 @@ import '../core/navigation/app_navigator.dart';
 import '../providers/shop_provider.dart';
 import 'app_toast.dart';
 import 'app_ui.dart';
-import 'trip_design.dart';
 
 class CoinPurchaseSheet {
   static Future<void> show(BuildContext context) async {
     final shop = context.read<ShopProvider>();
     if (shop.isBillingDisabled) return;
+    shop.releasePurchaseUi();
 
-    await showAppModal(const _CoinPurchaseSheet());
+    final ctx = rootContext ?? context;
+    await showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        final maxHeight = MediaQuery.sizeOf(sheetCtx).height * 0.72;
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: const _CoinPurchaseSheet(),
+        );
+      },
+    );
+    shop.releasePurchaseUi();
   }
 }
 
@@ -65,87 +83,104 @@ class _CoinPurchaseSheetState extends State<_CoinPurchaseSheet> {
   Widget build(BuildContext context) {
     final shop = context.watch<ShopProvider>();
     final products = shop.billing.products;
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
+    final configFailed = shop.configStatus == IapConfigStatus.networkError ||
+        shop.configStatus == IapConfigStatus.timeout;
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const TbSheetHandle(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      AppStrings.t(context, 'buyCoins'),
-                      style: AppTypography.titleLarge(color: AppColors.textPrimary).copyWith(fontSize: 20),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _BalanceHero(shop: shop),
-                    if (shop.configStatus == IapConfigStatus.networkError ||
-                        shop.configStatus == IapConfigStatus.timeout) ...[
-                      const SizedBox(height: 12),
-                      _StatusBanner(
-                        icon: Icons.wifi_off_outlined,
-                        text: shop.configStatus == IapConfigStatus.timeout
-                            ? AppStrings.t(context, 'configTimeout')
-                            : AppStrings.t(context, 'configNetworkError'),
-                        color: AppColors.warning,
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Text(
-                      AppStrings.t(context, 'buyCoinsDesc'),
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-                    if (shop.isPurchasing)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32),
-                        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                      )
-                    else if (!shop.billing.isAvailable)
-                      _EmptyBillingState(text: AppStrings.t(context, 'billingUnavailable'))
-                    else if (products.isEmpty)
-                      _EmptyBillingState(text: AppStrings.t(context, 'productsNotFound'))
-                    else
-                      ...products.asMap().entries.map(
-                            (e) => Padding(
-                              padding: EdgeInsets.only(bottom: e.key < products.length - 1 ? 10 : 0),
-                              child: _PackCard(product: e.value, index: e.key),
-                            ),
-                          ),
-                    const SizedBox(height: 16),
-                    _EarnHintRow(text: AppStrings.t(context, 'earnCoinsHint')),
-                  ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  AppStrings.t(context, 'buyCoins'),
+                  style: AppTypography.titleLarge(color: AppColors.textPrimary).copyWith(fontSize: 20),
                 ),
               ),
-            ),
-          ],
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+              ),
+            ],
+          ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          child: _BalanceHero(shop: shop),
+        ),
+        if (configFailed)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _StatusBanner(
+              icon: Icons.wifi_off_outlined,
+              text: shop.configStatus == IapConfigStatus.timeout
+                  ? AppStrings.t(context, 'configTimeout')
+                  : AppStrings.t(context, 'configNetworkError'),
+              color: AppColors.warning,
+            ),
+          ),
+        if (shop.isPurchasing)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _PurchaseProgressRow(),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Text(
+            AppStrings.t(context, 'buyCoinsDesc'),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+          ),
+        ),
+        if (products.isNotEmpty)
+          Flexible(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              itemCount: products.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => _PackCard(product: products[i], index: i),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _EmptyBillingState(
+              text: !shop.billing.isAvailable
+                  ? AppStrings.t(context, 'billingUnavailable')
+                  : AppStrings.t(context, 'productsNotFound'),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: _EarnHintRow(text: AppStrings.t(context, 'earnCoinsHint')),
+        ),
+      ],
+    );
+  }
+}
+
+class _PurchaseProgressRow extends StatelessWidget {
+  const _PurchaseProgressRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            AppStrings.t(context, 'processingPurchase'),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -263,7 +298,7 @@ class _PackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shop = context.read<ShopProvider>();
+    final shop = context.watch<ShopProvider>();
     final packIndex = IapConstants.coinPackIds.indexOf(product.id);
     final base = IapConstants.coinsForProduct(product.id);
     final total = shop.effectiveCoinsForPackIndex(packIndex);
